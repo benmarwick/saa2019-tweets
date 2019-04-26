@@ -5,6 +5,7 @@ SAA2019 Exploratory Data Analysis
 
 ``` r
 library(googlesheets)
+library(tidyverse)
 
 tags_sheet <- "https://docs.google.com/spreadsheets/d/17EOoOeGllBxk5x9TS3vEc0zdUwmh_fL0abdEdrOz1Pg/edit#gid=400689247"
 
@@ -23,6 +24,7 @@ The table inset in the plot shows the ten most retweeted tweets during
 the two hours of the highest volume of tweets.
 
 ``` r
+library(tidyverse)
 library(lubridate)
 ```
 
@@ -172,19 +174,81 @@ saa2019_tweet_archive_dttm_accounts <-
 ``` r
 library(tidytext)
 
+saa2019_tweet_archive_dttm_sentiment <- 
 saa2019_tweet_archive_dttm %>% 
   ungroup %>% 
-  filter(time_dttm >= "2019-04-11 00:00:00" & time_dttm <= "2019-04-17 00:00:00" ) %>%
-  select(text) %>%
+  # filter(time_dttm >= "2019-04-11 00:00:00" & time_dttm <= "2019-04-17 00:00:00" ) %>%
+  select(text, hour) %>%
   mutate(text = str_remove(text, "\\brt\\b|\\bRT\\b|\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)|https://*")) %>% 
   mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The")))  %>%
   unnest_tokens(word, text) %>% 
-  inner_join(get_sentiments("bing"))
+   inner_join(get_sentiments("nrc") %>% 
+   filter(sentiment %in% c("positive",  "negative"))) 
 ```
+
+    ## Joining, by = "word"
+
+``` r
+saa2019_tweet_archive_dttm_sentiment_tally <- 
+saa2019_tweet_archive_dttm_sentiment %>% 
+  group_by(hour, sentiment) %>% 
+  tally() %>% 
+  spread(sentiment, n) %>% 
+  mutate(prop_positive_sentiment  = positive / (negative + positive) )
+
+ggplot() +
+  geom_line(data = saa2019_tweet_archive_dttm_sentiment_tally,
+           aes(hour, prop_positive_sentiment,
+           colour = prop_positive_sentiment))  +
+  scale_color_continuous(low = "red", 
+                         high = "green", 
+                         name = "Proportion\nof tweets/hour\nwith \npositive\nsentiment") +
+  labs(y = "Proportion of tweets/hour with positive sentiment",
+       x = "Date and time") + 
+  scale_x_datetime(date_breaks = "1 day") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1, 
+                                   vjust = 0.5,
+                                   size = 6))
+```
+
+    ## Warning: Removed 2 rows containing missing values (geom_path).
+
+<img src="saa2019-tweets_files/figure-gfm/unnamed-chunk-5-1.png" width="2100" />
+
+World cloud organised by sentiment
+
+``` r
+library(reshape2)
+```
+
+    ## 
+    ## Attaching package: 'reshape2'
+
+    ## The following object is masked from 'package:tidyr':
+    ## 
+    ##     smiths
+
+``` r
+library(wordcloud)
+```
+
+    ## Loading required package: RColorBrewer
+
+``` r
+saa2019_tweet_archive_dttm_sentiment %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+<img src="saa2019-tweets_files/figure-gfm/unnamed-chunk-6-1.png" width="2100" />
 
 # Co-occuring words
 
-``` reval
+``` r
 library(igraph)
 library(ggraph)
 
@@ -193,7 +257,7 @@ saa2019_tweet_archive_dttm %>%
   filter(time_dttm >= "2019-04-11 00:00:00" & time_dttm <= "2019-04-17 00:00:00" ) %>%
   select(text) %>%
   mutate(text = str_remove(text, "\\brt\\b|\\bRT\\b|\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)|https://*")) %>% 
-  mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The"))) %>%
+  mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The", "2019"))) %>%
   unnest_tokens(paired_words, text, token = "ngrams", n = 2) %>% 
   separate(paired_words, c("word1", "word2"), sep = " ") %>% 
   count(word1, word2, sort = TRUE) %>% 
@@ -203,7 +267,7 @@ saa2019_tweet_archive_dttm %>%
   geom_edge_link(aes(edge_alpha = n, edge_width = n)) +
   geom_node_point(color = "darkslategray4", size = 3) +
   geom_node_text(aes(label = name), vjust = 1.8, size = 3) +
-  labs(title = "Word Network: for SAA2019",
+  labs(title = "Word Network for #SAA2019 tweets",
        x = "", y = "") +
   theme_void()
 ```
