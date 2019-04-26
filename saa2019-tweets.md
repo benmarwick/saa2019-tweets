@@ -47,6 +47,8 @@ library(gridExtra)
     ##     combine
 
 ``` r
+library(shadowtext)
+
 saa2019_tweet_archive <- 
 read_csv("saa2019_tweet_archive.csv")
 ```
@@ -117,7 +119,18 @@ saa2019_tweet_archive_dttm %>%
                     xmin= ymd_hms("2019-03-18 16:00:00 UTC"), 
                     xmax= ymd_hms("2019-04-08 16:00:00 UTC"), 
                     ymin= 250, 
-                    ymax= 100)
+                    ymax= 100) +
+    # shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = 0, 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue") +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 310), size=3)
 ```
 
 <img src="saa2019-tweets_files/figure-gfm/unnamed-chunk-2-1.png" width="2100" />
@@ -164,7 +177,18 @@ saa2019_tweet_archive_dttm_accounts <-
                                    vjust = 0.5,
                                    size = 6)) +
   labs(y = "Number of unique Twitter accounts posting per hour",
-       x = "Date and time") 
+       x = "Date and time")   +
+# shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = 0, 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue")  +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 180), size=3)
 ```
 
 <img src="saa2019-tweets_files/figure-gfm/unnamed-chunk-4-1.png" width="2100" />
@@ -210,7 +234,19 @@ ggplot() +
   theme(axis.text.x = element_text(angle = 90, 
                                    hjust = 1, 
                                    vjust = 0.5,
-                                   size = 6))
+                                   size = 6))   +
+# shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = min(saa2019_tweet_archive_dttm_sentiment_tally$prop_positive_sentiment, 
+                        na.rm = TRUE), 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue") +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 0.3), size=3)
 ```
 
     ## Warning: Removed 2 rows containing missing values (geom_path).
@@ -250,6 +286,40 @@ saa2019_tweet_archive_dttm_sentiment %>%
 
 ``` r
 library(igraph)
+```
+
+    ## 
+    ## Attaching package: 'igraph'
+
+    ## The following objects are masked from 'package:lubridate':
+    ## 
+    ##     %--%, union
+
+    ## The following objects are masked from 'package:dplyr':
+    ## 
+    ##     as_data_frame, groups, union
+
+    ## The following objects are masked from 'package:purrr':
+    ## 
+    ##     compose, simplify
+
+    ## The following object is masked from 'package:tidyr':
+    ## 
+    ##     crossing
+
+    ## The following object is masked from 'package:tibble':
+    ## 
+    ##     as_data_frame
+
+    ## The following objects are masked from 'package:stats':
+    ## 
+    ##     decompose, spectrum
+
+    ## The following object is masked from 'package:base':
+    ## 
+    ##     union
+
+``` r
 library(ggraph)
 
 saa2019_tweet_archive_dttm %>% 
@@ -271,3 +341,5 @@ saa2019_tweet_archive_dttm %>%
        x = "", y = "") +
   theme_void()
 ```
+
+<img src="saa2019-tweets_files/figure-gfm/unnamed-chunk-7-1.png" width="2100" />
