@@ -204,9 +204,6 @@ ggplot() +
   
 ```
 
-Is there a correlation between the volume of tweets and te
-
-
 World cloud organised by sentiment 
 
 ```{r}
