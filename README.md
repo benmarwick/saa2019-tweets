@@ -17,7 +17,7 @@ of American Archaeology annual meeting in 2019. More specfically, we are
 looking at tweets that include the hashtag \#SAA2019. For an interactive
 exploration of this R code and data without downloading anything, click
 [Launch RStudio
-binder](\(https://mybinder.org/v2/gh/benmarwick/saa2019-tweets/master?urlpath=rstudio\))
+binder](https://mybinder.org/v2/gh/benmarwick/saa2019-tweets/master?urlpath=rstudio)
 to launch an instance of RStudio in your browser the includes the code
 and data in an environment that can run the code.
 
@@ -361,7 +361,7 @@ saa2019_tweet_archive_dttm %>%
 This document was written in R Markdown. The code and data for this
 document is online at <https://github.com/benmarwick/saa2019-tweets>.
 
-This document was generated on 2019-08-01 10:21:35 using the following
+This document was generated on 2019-08-01 10:25:14 using the following
 computational environment and dependencies:
 
 ``` r
@@ -541,5 +541,5 @@ The current Git commit details are:
 git2r::repository(".")
 #> Local:    master /Users/bmarwick/Desktop/saa2019-tweets
 #> Remote:   master @ origin (https://github.com/benmarwick/saa2019-tweets.git)
-#> Head:     [3285fcd] 2019-04-26: add json from twarc
+#> Head:     [f419fd2] 2019-08-01: resolve merge conflict
 ```
