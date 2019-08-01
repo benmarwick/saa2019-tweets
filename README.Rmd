@@ -1,0 +1,290 @@
+---
+title: "Preliminary exploration of tweets relating the 2019 Society of American Archaeology annual meeting"
+author: "Ben Marwick"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+<!-- badges: start -->
+[![Launch Rstudio binder](http://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/benmarwick/saa2019-tweets/master?urlpath=rstudio)
+<!-- badges: end -->
+
+The goal of saa2019-tweets is to explore tweets posted about the Society of American Archaeology annual meeting in 2019. More specfically, we are looking at tweets that include the hashtag #SAA2019. For an interactive exploration of this R code and data without downloading anything, click [Launch RStudio binder]((https://mybinder.org/v2/gh/benmarwick/saa2019-tweets/master?urlpath=rstudio)) to launch an instance of RStudio in your browser the includes the code and data in an environment that can run the code. 
+
+The 2019 meeting was notable because of the controversial handling of David Yesner's presence at the meeting. Yesner is an archaeologist banned from his university’s campus for sexual harassment. More details can be found in _Science_ ([1](https://www.sciencemag.org/news/2019/04/metoo-controversy-erupts-archaeology-meeting), [2](https://www.sciencemag.org/news/2019/04/archaeological-society-tries-stem-continuing-controversy-over-metoo-scandal)) and _The Scientist_ ([1](https://www.the-scientist.com/news-opinion/an-archaeology-meeting-finds-itself-in-the-middle-of--metoostem-65737)).
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      fig.retina = 2,
+                      dpi=300)
+```
+
+# Acquire the tweets from the TAGS Google sheet
+
+We do this once, and then store the results locally for future reference. 
+
+```{r eval = FALSE}
+library(googlesheets)
+library(tidyverse)
+
+tags_sheet <- "https://docs.google.com/spreadsheets/d/17EOoOeGllBxk5x9TS3vEc0zdUwmh_fL0abdEdrOz1Pg/edit#gid=400689247"
+
+saa2019_tweet_archive <- 
+tags_sheet %>% 
+  gs_url() %>% 
+    gs_read(ws = "Archive")
+
+# save a local copy
+write_csv(saa2019_tweet_archive,
+          "data/saa2019_tweet_archive.csv")
+```
+
+# Volume of tweets over time
+
+The table inset in the plot shows the ten most retweeted tweets during the two hours of the highest volume of tweets.
+
+```{r cache=TRUE}
+library(tidyverse)
+library(lubridate)
+library(gridExtra)
+library(shadowtext)
+
+saa2019_tweet_archive <- 
+read_csv("data/saa2019_tweet_archive.csv")
+
+saa2019_tweet_archive_dttm <- 
+saa2019_tweet_archive %>% 
+  mutate(time_dttm = dmy_hms(time)) %>% 
+  group_by(hour = floor_date(time_dttm, "hour")) 
+
+saa2019_tweet_archive_dttm_hourly_counts <- 
+saa2019_tweet_archive_dttm %>% 
+  count()  
+
+top_hours <- 
+  saa2019_tweet_archive_dttm_hourly_counts %>% 
+  arrange(desc(n)) %>% 
+  ungroup %>% 
+  slice(1:2)
+
+saa2019_tweet_archive_dttm_top_hours <- 
+saa2019_tweet_archive_dttm %>% 
+  filter(hour %in% top_hours$hour) %>% 
+  group_by(text) %>% 
+  count(sort = TRUE) %>% 
+  ungroup %>%
+  mutate(text = str_wrap(text, 100)) %>% 
+  slice(1:10)
+
+saa2019_tweet_archive_dttm_hourly_counts_plot <- 
+  ggplot(saa2019_tweet_archive_dttm_hourly_counts,
+         aes(hour, n)) +
+  geom_line() +
+  geom_vline(xintercept = top_hours$hour,
+             colour = "red") +
+  theme_minimal(base_size = 12) +
+  scale_x_datetime(date_breaks = "1 day") +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1, 
+                                   vjust = 0.5,
+                                   size = 6)) +
+  labs(y = "Number of tweets per hour",
+       x = "Date and time") +
+  annotation_custom(tableGrob(saa2019_tweet_archive_dttm_top_hours,
+                              rows=NULL,
+                              theme = ttheme_default(base_size = 4)), 
+                    xmin= ymd_hms("2019-03-18 16:00:00 UTC"), 
+                    xmax= ymd_hms("2019-04-08 16:00:00 UTC"), 
+                    ymin= 250, 
+                    ymax= 100) +
+    # shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = 0, 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue") +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 310), size=3)
+
+saa2019_tweet_archive_dttm_hourly_counts_plot
+```
+
+# Number of Twitter accounts using #SAA2019
+
+The total number of unique accounts in this data set is `r dplyr::n_distinct(saa2019_tweet_archive_dttm$from_user)`.
+
+Here are the top 50 twitter accounts in these data:
+
+```{r dpi=300}
+library(tidyverse)
+saa2019_tweet_archive_dttm_accounts_count <- 
+  saa2019_tweet_archive_dttm %>% 
+  ungroup %>% 
+  count(from_user, sort = TRUE) 
+
+saa2019_tweet_archive_dttm_accounts_count %>% 
+  slice(1:50) %>% 
+ggplot(aes(reorder(from_user, n), n)) +
+  geom_col() +
+  coord_flip() +
+  theme_minimal(base_size = 10) +
+  labs(y = "Number of tweets",
+       x = "Top 50 Twitter accounts by volume") 
+```
+
+Here is the count of all twitter accounts active in each hour:
+
+```{r dpi=300, cache=TRUE}
+saa2019_tweet_archive_dttm_accounts <- 
+  saa2019_tweet_archive_dttm %>% 
+  group_by(hour) %>% 
+  summarise(n_accounts = n_distinct(from_user))
+
+  ggplot(saa2019_tweet_archive_dttm_accounts,
+         aes(hour, n_accounts)) +
+  geom_line() +
+  theme_minimal(base_size = 12) +
+  scale_x_datetime(date_breaks = "1 day") +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1, 
+                                   vjust = 0.5,
+                                   size = 6)) +
+  labs(y = "Number of unique Twitter accounts posting per hour",
+       x = "Date and time")   +
+# shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = 0, 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue")  +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 180), size=3)
+```
+
+# Sentiment analysis
+
+Sentiment analysis of tweets containing the #saa2019 hashtag posted during March-April 2019. Sentiment gradually trends upwards before the meeting, followed by a steep decline during the meeting. After the meeting there is very high variance in sentiment. 
+
+```{r cache=TRUE}
+library(tidytext)
+
+saa2019_tweet_archive_dttm_sentiment <- 
+saa2019_tweet_archive_dttm %>% 
+  ungroup %>% 
+  # filter(time_dttm >= "2019-04-11 00:00:00" & time_dttm <= "2019-04-17 00:00:00" ) %>%
+  select(text, hour) %>%
+  mutate(text = str_remove(text, "\\brt\\b|\\bRT\\b|\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)|https://*")) %>% 
+  mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The")))  %>%
+  unnest_tokens(word, text) %>% 
+   inner_join(get_sentiments("bing") %>% 
+   filter(sentiment %in% c("positive",  "negative"))) 
+
+saa2019_tweet_archive_dttm_sentiment_tally <- 
+saa2019_tweet_archive_dttm_sentiment %>% 
+  group_by(hour, sentiment) %>% 
+  tally() %>% 
+  spread(sentiment, n) %>% 
+  mutate(prop_positive_sentiment  = positive / (negative + positive) )
+
+ggplot() +
+  geom_line(data = saa2019_tweet_archive_dttm_sentiment_tally,
+           aes(hour, prop_positive_sentiment,
+           colour = prop_positive_sentiment))  +
+  scale_color_continuous(low = "red", 
+                         high = "green", 
+                         name = "Proportion\nof tweets/hour\nwith \npositive\nsentiment") +
+  labs(y = "Proportion of tweets/hour\nwith positive sentiment",
+       x = "Date and time") + 
+  scale_x_datetime(date_breaks = "1 day") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 90, 
+                                   hjust = 1, 
+                                   vjust = 0.5,
+                                   size = 6))   +
+# shade SAA meeting days | April 10 - 14, 2019.
+    annotate("rect", 
+             xmin = ymd_hms("2019-04-10 08:00:00 UTC"),
+             xmax = ymd_hms("2019-04-14 12:00:00 UTC"), 
+             ymin = 0, 
+             ymax = Inf, 
+             alpha = 0.1,  
+             fill = "blue") +
+  geom_shadowtext(aes(label="SAA\nmeeting",
+                      x = ymd_hms("2019-04-12 08:00:00 UTC"),
+                      y = 0.1), size=3)
+  
+```
+
+World cloud organised by sentiment 
+
+```{r}
+library(tidytext)
+library(reshape2)
+library(wordcloud)
+
+saa2019_tweet_archive_dttm_sentiment %>%
+  count(word, sentiment, sort = TRUE) %>%
+  acast(word ~ sentiment, value.var = "n", fill = 0) %>%
+  comparison.cloud(colors = c("gray20", "gray80"),
+                   max.words = 100)
+```
+
+# Co-occuring words
+
+```{r}
+library(tidytext)
+library(igraph)
+library(ggraph)
+
+saa2019_tweet_archive_dttm %>% 
+  ungroup %>% 
+  filter(time_dttm >= "2019-04-11 00:00:00" & time_dttm <= "2019-04-17 00:00:00" ) %>%
+  select(text) %>%
+  mutate(text = str_remove(text, "\\brt\\b|\\bRT\\b|\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)|https://*")) %>% 
+  mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The", "2019"))) %>%
+  unnest_tokens(paired_words, text, token = "ngrams", n = 2) %>% 
+  separate(paired_words, c("word1", "word2"), sep = " ") %>% 
+  count(word1, word2, sort = TRUE) %>% 
+  filter(n >= 100) %>%
+  graph_from_data_frame() %>%
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n, edge_width = n)) +
+  geom_node_point(color = "darkslategray4", size = 3) +
+  geom_node_text(aes(label = name), vjust = 1.8, size = 3) +
+  labs(title = "Word Network for #SAA2019 tweets",
+       x = "", y = "") +
+  theme_void()
+```
+
+## Colophon
+
+This document was written in R Markdown. The code and data for this document is online at <https://github.com/benmarwick/saa2019-tweets>.
+
+This document was generated on `r Sys.time()` using the following computational environment and dependencies:
+
+```{r}
+sessioninfo::session_info()
+```
+
+The current Git commit details are:
+
+```{r}
+git2r::repository(".")
+```
+
