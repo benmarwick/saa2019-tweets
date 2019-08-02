@@ -47,6 +47,16 @@ tags_sheet %>%
 # save a local copy
 write_csv(saa2019_tweet_archive,
           "data/saa2019_tweet_archive.csv")
+
+# get the word senitment data
+afinn <- read_tsv("https://raw.githubusercontent.com/fnielsen/afinn/master/afinn/data/AFINN-en-165.txt", col_names = c("word", "sentiment"))
+afinn <- afinn %>% 
+  mutate(sentiment = ifelse(sentiment > 0, "positive",  "negative"))
+
+# save a local copy
+write_csv(afinn,
+          "data/afinn.csv")
+
 ```
 
 # Volume of tweets over time
@@ -179,10 +189,17 @@ saa2019_tweet_archive_dttm_accounts <-
 
 # Sentiment analysis
 
-Sentiment analysis of tweets containing the #saa2019 hashtag posted during March-April 2019. Sentiment gradually trends upwards before the meeting, followed by a steep decline during the meeting. After the meeting there is very high variance in sentiment. 
+Sentiment analysis of tweets containing the #saa2019 hashtag posted during March-April 2019. The sentiment of a word in a tweet is computed by looking it up in the AFINN lexicon, which is a list of words that have been tagged by Nielsen et al. with a sentiment score (positive or negative). There are many similar lists, and all have limitations ([1](https://hoyeolkim.wordpress.com/2018/02/25/the-limits-of-the-bing-afinn-and-nrc-lexicons-with-the-tidytext-package-in-r/)). I chose this one because it is optimised for social media text and contains words that are found on twitter but rarely in other contexts. More details about this list have been published here:
+
+> Finn Årup Nielsen A new ANEW: Evaluation of a word list for sentiment analysis in microblogs. Proceedings of the ESWC2011 Workshop on 'Making Sense of Microposts': Big things come in small packages 718 in CEUR Workshop Proceedings 93-98. 2011 May. http://arxiv.org/abs/1103.2903.
+
+In the SAA2019 data, sentiment gradually trends upwards before the meeting, followed by a steep decline during the meeting. After the meeting there is very high variance in sentiment. 
 
 ```{r cache=TRUE}
 library(tidytext)
+library(textdata)
+
+afinn <- read_csv("data/afinn.csv")
 
 saa2019_tweet_archive_dttm_sentiment <- 
 saa2019_tweet_archive_dttm %>% 
@@ -192,7 +209,7 @@ saa2019_tweet_archive_dttm %>%
   mutate(text = str_remove(text, "\\brt\\b|\\bRT\\b|\\s?(f|ht)(tp)(s?)(://)([^\\.]*)[\\.|/](\\S*)|https://*")) %>% 
   mutate(text = tm::removeWords(text, c(stop_words$word, "the", "The")))  %>%
   unnest_tokens(word, text) %>% 
-   inner_join(get_sentiments("bing") %>% 
+   inner_join(afinn %>% 
    filter(sentiment %in% c("positive",  "negative"))) 
 
 saa2019_tweet_archive_dttm_sentiment_tally <- 
